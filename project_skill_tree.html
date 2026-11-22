@@ -20,17 +20,19 @@
 </head>
 <body>
 <div id="viewport">
-<svg id="map" viewBox="0 0 1400 900" aria-label="Схема проектов">
+<svg id="map" viewBox="0 0 1600 1200" aria-label="Схема проектов">
   <g id="scene">
-    <circle class="orbit" cx="700" cy="450" r="310"/>
+    <circle class="orbit" cx="800" cy="600" r="300"/>
+    <circle class="orbit" cx="800" cy="600" r="520"/>
     <g id="connections"></g>
     <g id="nodes"></g>
   </g>
 </svg>
 </div>
 <script>
-const projects = ["C2","DS1","CbS1","DO1","QA1","BSA00","PJM1","UX/UI1","PM1","TP1","AIE1"];
-const cx = 700, cy = 450, radius = 310;
+const projects = ["DO1","QA1","C2","BSA00","PM1","DS1","CbS1","PJM1","UX/UI1","TP1","AIE1"];
+const nextProjects = ["DO2","QA2","C3","BSA01","PM2","DS2","CbS2","PJM2","UX/UI2","TP2","AIE2"];
+const cx = 800, cy = 600, firstRadius = 300, secondRadius = 520;
 const connectionLayer = document.getElementById("connections");
 const nodeLayer = document.getElementById("nodes");
 
@@ -47,13 +49,24 @@ make("text", {x:cx,y:cy+1}, core).textContent = "core_strage";
 
 projects.forEach((name, i) => {
   const angle = -Math.PI/2 + i * 2*Math.PI/projects.length;
-  const x = cx + radius * Math.cos(angle);
-  const y = cy + radius * Math.sin(angle);
+  const x1 = cx + firstRadius * Math.cos(angle);
+  const y1 = cy + firstRadius * Math.sin(angle);
+  const x2 = cx + secondRadius * Math.cos(angle);
+  const y2 = cy + secondRadius * Math.sin(angle);
 
-  make("line", {class:"connection",x1:cx,y1:cy,x2:x,y2:y}, connectionLayer);
-  const node = make("g", {class:"node",tabindex:"0"}, nodeLayer);
-  make("circle", {cx:x,cy:y,r:29}, node);
-  make("text", {x,y:y+1}, node).textContent = name;
+  // Связь центра с первой орбитой
+  make("line", {class:"connection",x1:cx,y1:cy,x2:x1,y2:y1}, connectionLayer);
+
+  // Связь первого проекта со вторым проектом той же ветки
+  make("line", {class:"connection",x1,y1,x2,y2}, connectionLayer);
+
+  const firstNode = make("g", {class:"node",tabindex:"0"}, nodeLayer);
+  make("circle", {cx:x1,cy:y1,r:29}, firstNode);
+  make("text", {x:x1,y:y1+1}, firstNode).textContent = name;
+
+  const secondNode = make("g", {class:"node",tabindex:"0"}, nodeLayer);
+  make("circle", {cx:x2,cy:y2,r:29}, secondNode);
+  make("text", {x:x2,y:y2+1}, secondNode).textContent = nextProjects[i];
 });
 
 // Перемещение и масштабирование схемы
