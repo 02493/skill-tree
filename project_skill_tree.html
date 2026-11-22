@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Project Skill Tree</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { width:100%; height:100%; margin:0; overflow:hidden; background:#fff; color:#222; font-family:Arial, sans-serif; }
+  #viewport { width:100%; height:100%; cursor:grab; }
+  #viewport:active { cursor:grabbing; }
+  svg { width:100%; height:100%; display:block; }
+  .orbit { fill:none; stroke:#d7d7d7; stroke-width:1; stroke-dasharray:3 5; }
+  .connection { stroke:#999; stroke-width:1; }
+  .node circle { fill:#fff; stroke:#555; stroke-width:1; }
+  .node text { fill:#222; font-size:12px; font-weight:600; text-anchor:middle; dominant-baseline:middle; pointer-events:none; }
+  .core circle { stroke:#222; stroke-width:1.5; }
+  .core text { font-size:13px; }
+</style>
+</head>
+<body>
+<div id="viewport">
+<svg id="map" viewBox="0 0 1400 900" aria-label="Схема проектов">
+  <g id="scene">
+    <circle class="orbit" cx="700" cy="450" r="310"/>
+    <g id="connections"></g>
+    <g id="nodes"></g>
+  </g>
+</svg>
+</div>
+<script>
+const projects = ["C2","DS1","CbS1","DO1","QA1","BSA00","PJM1","UX/UI1","PM1","TP1","AIE1"];
+const cx = 700, cy = 450, radius = 310;
+const connectionLayer = document.getElementById("connections");
+const nodeLayer = document.getElementById("nodes");
+
+function make(tag, attrs, parent) {
+  const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  Object.entries(attrs).forEach(([key,value]) => el.setAttribute(key,value));
+  parent.appendChild(el);
+  return el;
+}
+
+const core = make("g", {class:"node core"}, nodeLayer);
+make("circle", {cx,cy,r:48}, core);
+make("text", {x:cx,y:cy+1}, core).textContent = "core_strage";
+
+projects.forEach((name, i) => {
+  const angle = -Math.PI/2 + i * 2*Math.PI/projects.length;
+  const x = cx + radius * Math.cos(angle);
+  const y = cy + radius * Math.sin(angle);
+
+  make("line", {class:"connection",x1:cx,y1:cy,x2:x,y2:y}, connectionLayer);
+  const node = make("g", {class:"node",tabindex:"0"}, nodeLayer);
+  make("circle", {cx:x,cy:y,r:29}, node);
+  make("text", {x,y:y+1}, node).textContent = name;
+});
+
+// Перемещение и масштабирование схемы
+const svg = document.getElementById("map");
+const scene = document.getElementById("scene");
+let scale = 1, tx = 0, ty = 0, dragging = false, startX = 0, startY = 0;
+function update() { scene.setAttribute("transform",`translate(${tx} ${ty}) scale(${scale})`); }
+
+svg.addEventListener("pointerdown", e => {
+  if (e.target.closest(".node")) return;
+  dragging = true;
+  startX = e.clientX - tx;
+  startY = e.clientY - ty;
+  svg.setPointerCapture(e.pointerId);
+});
+svg.addEventListener("pointermove", e => {
+  if (!dragging) return;
+  tx = e.clientX - startX;
+  ty = e.clientY - startY;
+  update();
+});
+svg.addEventListener("pointerup", () => dragging = false);
+svg.addEventListener("pointercancel", () => dragging = false);
+svg.addEventListener("wheel", e => {
+  e.preventDefault();
+  scale = Math.max(.6,Math.min(2,scale * (e.deltaY < 0 ? 1.08 : .92)));
+  update();
+},{passive:false});
+</script>
+</body>
+</html>
