@@ -14,16 +14,19 @@
   .connection { stroke:#999; stroke-width:1; }
   .node circle { fill:#fff; stroke:#555; stroke-width:1; }
   .node text { fill:#222; font-size:12px; font-weight:600; text-anchor:middle; dominant-baseline:middle; pointer-events:none; }
+  .node.small circle { r:14.5; }
+  .node.small text { font-size:7px; }
   .core circle { stroke:#222; stroke-width:1.5; }
   .core text { font-size:13px; }
 </style>
 </head>
 <body>
 <div id="viewport">
-<svg id="map" viewBox="0 0 1600 1200" aria-label="Схема проектов">
+<svg id="map" viewBox="-100 -200 1800 1600" aria-label="Схема проектов">
   <g id="scene">
     <circle class="orbit" cx="800" cy="600" r="300"/>
     <circle class="orbit" cx="800" cy="600" r="520"/>
+    <circle class="orbit" cx="800" cy="600" r="740"/>
     <g id="connections"></g>
     <g id="nodes"></g>
   </g>
@@ -31,8 +34,22 @@
 </div>
 <script>
 const projects = ["DO1","QA1","C2","BSA00","PM1","DS1","CbS1","PJM1","UX/UI1","TP1","AIE1"];
-const nextProjects = ["DO2","QA2","C3","BSA01","PM2","DS2","CbS2","PJM2","UX/UI2","TP2","AIE2"];
-const cx = 800, cy = 600, firstRadius = 300, secondRadius = 520;
+
+// Для каждой ветки перечислены только новые проекты после узла первой орбиты.
+// Последний проект каждой цепочки располагается на второй орбите.
+const branches = {
+  "DO1": ["DO2","DO3"],
+  "QA1": ["QA2","QA3","QA4"],
+  "C2": ["C3"],
+  "BSA00": ["BSA01","BSA2"],
+  "DS1": ["DS2"],
+  "CbS1": ["CbS2","CbS3"],
+  "PJM1": ["PJM2","PJM3","PJM4","PJM5"],
+  "UX/UI1": ["UX/UI2","UX/UI3","UX/UI4"]
+};
+
+const cx = 800, cy = 600;
+const firstRadius = 300, secondRadius = 520, thirdRadius = 740;
 const connectionLayer = document.getElementById("connections");
 const nodeLayer = document.getElementById("nodes");
 
@@ -43,31 +60,151 @@ function make(tag, attrs, parent) {
   return el;
 }
 
-const core = make("g", {class:"node core"}, nodeLayer);
-make("circle", {cx,cy,r:48}, core);
-make("text", {x:cx,y:cy+1}, core).textContent = "core_strage";
+function addNode(name, x, y, size = "normal", isCore = false) {
+  const classes = ["node"];
+  if (size === "small") classes.push("small");
+  if (isCore) classes.push("core");
+  const node = make("g", {class:classes.join(" "), tabindex:"0"}, nodeLayer);
+  make("circle", {cx:x,cy:y,r:isCore ? 48 : (size === "small" ? 14.5 : 29)}, node);
+  make("text", {x,y:y+1}, node).textContent = name;
+  return {x,y};
+}
+
+function pointAt(radius, angle) {
+  return {x:cx + radius * Math.cos(angle), y:cy + radius * Math.sin(angle)};
+}
+
+function connect(a, b) {
+  make("line", {class:"connection",x1:a.x,y1:a.y,x2:b.x,y2:b.y}, connectionLayer);
+}
+
+// Рисует цепочку от существующего узла до указанной орбиты.
+// Маленькие промежуточные узлы чередуются по сторонам линии — получается зигзаг.
+function drawPath(start, startRadius, names, endRadius, baseAngle, angleOffset = 0.10, finalSize = "normal") {
+  let previous = start;
+  const count = names.length;
+
+  names.forEach((name, index) => {
+    const isLast = index === count - 1;
+    const progress = (index + 1) / count;
+    const radius = startRadius + (endRadius - startRadius) * progress;
+    const side = index % 2 === 0 ? 1 : -1;
+    const angle = baseAngle + (!isLast && count > 1 ? side * angleOffset : 0);
+    const point = pointAt(radius, angle);
+    connect(previous, point);
+    addNode(name, point.x, point.y, isLast ? finalSize : "small");
+    previous = point;
+  });
+  return previous;
+}
+
+addNode("core_strage", cx, cy, "normal", true);
+
+const firstNodes = {};
+const secondNodes = {};
+const firstAngles = {};
 
 projects.forEach((name, i) => {
   const angle = -Math.PI/2 + i * 2*Math.PI/projects.length;
-  const x1 = cx + firstRadius * Math.cos(angle);
-  const y1 = cy + firstRadius * Math.sin(angle);
-  const x2 = cx + secondRadius * Math.cos(angle);
-  const y2 = cy + secondRadius * Math.sin(angle);
-
-  // Связь центра с первой орбитой
-  make("line", {class:"connection",x1:cx,y1:cy,x2:x1,y2:y1}, connectionLayer);
-
-  // Связь первого проекта со вторым проектом той же ветки
-  make("line", {class:"connection",x1,y1,x2,y2}, connectionLayer);
-
-  const firstNode = make("g", {class:"node",tabindex:"0"}, nodeLayer);
-  make("circle", {cx:x1,cy:y1,r:29}, firstNode);
-  make("text", {x:x1,y:y1+1}, firstNode).textContent = name;
-
-  const secondNode = make("g", {class:"node",tabindex:"0"}, nodeLayer);
-  make("circle", {cx:x2,cy:y2,r:29}, secondNode);
-  make("text", {x:x2,y:y2+1}, secondNode).textContent = nextProjects[i];
+  firstAngles[name] = angle;
+  const point = pointAt(firstRadius, angle);
+  connect({x:cx,y:cy}, point);
+  firstNodes[name] = addNode(name, point.x, point.y);
 });
+
+// Вторая орбита — согласованные ветки.
+const secondPaths = {
+  "DO1": ["DO2","DO3"],
+  "QA1": ["QA2","QA3","QA4"],
+  "C2": ["C3"],
+  "BSA00": ["BSA01","BSA2"],
+  "DS1": ["DS2"],
+  "CbS1": ["CbS2","CbS3"],
+  "PJM1": ["PJM2","PJM3","PJM4","PJM5"],
+  "UX/UI1": ["UX/UI2","UX/UI3","UX/UI4"]
+};
+
+Object.entries(secondPaths).forEach(([root, path]) => {
+  secondNodes[root] = drawPath(
+    firstNodes[root], firstRadius, path, secondRadius, firstAngles[root]
+  );
+});
+
+// Маленькие проекты располагаются на невидимой общей окружности
+// вокруг core. Сама окружность не отображается — видны только узлы и связи.
+const thirdNodes = {};
+const smallOrbitRadius = (secondRadius + thirdRadius) / 2;
+
+function drawOuterPath(root, names) {
+  let previous = secondNodes[root];
+  const angle = firstAngles[root];
+  const count = names.length;
+
+  names.forEach((name, index) => {
+    const isLast = index === count - 1;
+    let point;
+
+    if (isLast) {
+      // Конечный большой проект остаётся на третьей орбите.
+      point = pointAt(thirdRadius, angle);
+    } else {
+      // Маленькие проекты идут по дуге невидимой окружности.
+      const t = count <= 1 ? 0 : index / Math.max(1, count - 2);
+      const arc = count > 2 ? 0.18 : 0.12;
+      const offset = -arc / 2 + t * arc;
+      point = pointAt(smallOrbitRadius, angle + offset);
+    }
+
+    connect(previous, point);
+    thirdNodes[name] = addNode(name, point.x, point.y, isLast ? "normal" : "small");
+    previous = point;
+  });
+}
+
+// DO3 → DO4
+drawOuterPath("DO1", ["DO4"]);
+
+// QA4 → QA5 → QA6 → QA7
+drawOuterPath("QA1", ["QA5", "QA6", "QA7"]);
+
+// PjM5 → PjM6 → PjM7 → PjM8 → PjM9 → PjM10
+drawOuterPath("PJM1", ["PjM6", "PjM7", "PjM8", "PjM9", "PjM10"]);
+
+// BSA2 → BSA3 → BSA4 → BSA5
+drawOuterPath("BSA00", ["BSA3", "BSA4", "BSA5"]);
+
+// CbS3 → CbS4 → CbS5 → CbS6 → CbS7
+drawOuterPath("CbS1", ["CbS4", "CbS5", "CbS6", "CbS7"]);
+
+// UX/UI4 → UX/UI5 → UX/UI6
+drawOuterPath("UX/UI1", ["UX/UI5", "UX/UI6"]);
+
+// C3 → C5 (C4 пропускается)
+drawOuterPath("C2", ["C5"]);
+
+// Ветка DS: DS1 → DS2, затем две дугообразные цепочки от DS2.
+function drawDSBranch(start, names, angleOffset, arc = 0.10) {
+  let previous = start;
+  const baseAngle = firstAngles["DS1"] + angleOffset;
+  const count = names.length;
+
+  names.forEach((name, index) => {
+    const isLast = index === count - 1;
+    const t = count <= 1 ? 0 : index / Math.max(1, count - 2);
+    const offset = isLast ? 0 : -arc / 2 + t * arc;
+    const point = isLast
+      ? pointAt(thirdRadius, baseAngle)
+      : pointAt(smallOrbitRadius, baseAngle + offset);
+
+    connect(previous, point);
+    thirdNodes[name] = addNode(name, point.x, point.y, isLast ? "normal" : "small");
+    previous = point;
+  });
+}
+
+const ds2 = secondNodes["DS1"];
+drawDSBranch(ds2, ["ML1", "ML2"], -0.13, 0.07);
+drawDSBranch(ds2, ["BInf1", "BInf2", "BInf3", "BInf4"], 0.13, 0.09);
 
 // Перемещение и масштабирование схемы
 const svg = document.getElementById("map");
