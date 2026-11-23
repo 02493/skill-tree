@@ -243,6 +243,36 @@ const ds2 = secondNodes["DS1"];
 drawDSBranch(ds2, ["ML1", "ML2"], -0.13, 0.07);
 drawDSBranch(ds2, ["BInf1", "BInf2", "BInf3", "BInf4"], 0.13, 0.09);
 
+// Шесть радиальных лучей вокруг DS1 и DS2.
+// Узлы равномерно распределены по окружности, а не собраны с одной стороны.
+function addSatelliteVertices(center, names, startAngle, distance = 82) {
+  names.forEach((name, index) => {
+    const angle = startAngle + index * (Math.PI * 2 / 6);
+    const point = {
+      x: center.x + Math.cos(angle) * distance,
+      y: center.y + Math.sin(angle) * distance
+    };
+    connect(center, point);
+    addNode(name, point.x, point.y, "small");
+  });
+}
+
+// DSB1–DSB6: шесть лучей вокруг DS1.
+addSatelliteVertices(
+  firstNodes["DS1"],
+  ["DSB1", "DSB2", "DSB3", "DSB4", "DSB5", "DSB6"],
+  -Math.PI / 2 + Math.PI / 12,
+  82
+);
+
+// DSB7–DSB12: шесть лучей вокруг DS2.
+addSatelliteVertices(
+  ds2,
+  ["DSB7", "DSB8", "DSB9", "DSB10", "DSB11", "DSB12"],
+  -Math.PI / 2 - Math.PI / 12,
+  82
+);
+
 // Четвёртая орбита. Между третьей и четвёртой орбитами
 // используем плавные дуги без выдуманных названий проектов.
 const fourthRadius = 960;
@@ -277,7 +307,21 @@ let previousUxui = thirdNodes["UX/UI6"];
 const uxui9Point = pointAt(fourthRadius, uxuiBranchAngle);
 connect(previousUxui, uxui9Point);
 fourthNodes["UX/UI9"] = addNode("UX/UI9", uxui9Point.x, uxui9Point.y);
-addFourthProject(thirdNodes["BSA5"], "BSA9", firstAngles["BSA00"]);
+// BSA5 → BSA6 → BSA7 → BSA8 → BSA9.
+// Три мини-проекта равномерно распределены между третьей и четвёртой орбитами.
+const bsaAngle = firstAngles["BSA00"];
+let previousBSA = thirdNodes["BSA5"];
+["BSA6", "BSA7", "BSA8"].forEach((name, index) => {
+  const radius = 795 + index * 55;
+  const angle = bsaAngle + [-0.055, 0.055, -0.025][index];
+  const point = pointAt(radius, angle);
+  connect(previousBSA, point);
+  addNode(name, point.x, point.y, "small");
+  previousBSA = point;
+});
+const bsa9Point = pointAt(fourthRadius, bsaAngle);
+connect(previousBSA, bsa9Point);
+fourthNodes["BSA9"] = addNode("BSA9", bsa9Point.x, bsa9Point.y);
 addFourthProject(thirdNodes["ML2"], "ML5", firstAngles["DS1"] - 0.13);
 // PjM10 → PjM11 ... PjM19 → PjM20.
 // Минипроекты распределены по широкой невидимой дуге между третьей и четвёртой орбитами.
@@ -426,6 +470,59 @@ if (binf16Element) binf16Element.classList.add("cbs-highlight");
 // ML8 и ML9 — маленькие промежуточные проекты между пятой и шестой орбитами.
 // ML10 расположен на шестой орбите и пока не является финальным проектом.
 const sixthRadius = 1400;
+
+// BSA9 → BSA10 → BSA11 → BSA12 → BSA13 → BSA14 → BSA15 → BSA16 → BSA_Ex.
+// BSA10–11 и BSA13–15 — мини-проекты; BSA12 и BSA16 — крупные узлы.
+let previousBSAOuter = fourthNodes["BSA9"];
+["BSA10", "BSA11"].forEach((name, index) => {
+  const angle = bsaAngle + (index === 0 ? -0.055 : 0.055);
+  const point = pointAt(1070, angle);
+  connect(previousBSAOuter, point);
+  addNode(name, point.x, point.y, "small");
+  previousBSAOuter = point;
+});
+
+const bsa12Point = pointAt(fifthRadius, bsaAngle);
+connect(previousBSAOuter, bsa12Point);
+fifthNodes["BSA12"] = addNode("BSA12", bsa12Point.x, bsa12Point.y);
+
+previousBSAOuter = bsa12Point;
+["BSA13", "BSA14", "BSA15"].forEach((name, index) => {
+  const angle = bsaAngle + [-0.07, 0, 0.07][index];
+  const point = pointAt(1290, angle);
+  connect(previousBSAOuter, point);
+  addNode(name, point.x, point.y, "small");
+  previousBSAOuter = point;
+});
+
+const bsa16Point = pointAt(sixthRadius, bsaAngle);
+connect(previousBSAOuter, bsa16Point);
+addNode("BSA16", bsa16Point.x, bsa16Point.y);
+
+// Финальный боковой проект BSA_Ex после BSA16.
+const bsaExPoint = pointAt(sixthRadius, bsaAngle + 0.12);
+connect(bsa16Point, bsaExPoint);
+const bsaEx = make("g", {class:"node", tabindex:"0"}, nodeLayer);
+const bsaTriSize = 31;
+const bsaTriPoints = [
+  `${bsaExPoint.x},${bsaExPoint.y - bsaTriSize}`,
+  `${bsaExPoint.x - bsaTriSize * 0.88},${bsaExPoint.y + bsaTriSize * 0.62}`,
+  `${bsaExPoint.x + bsaTriSize * 0.88},${bsaExPoint.y + bsaTriSize * 0.62}`
+].join(" ");
+make("polygon", {
+  points: bsaTriPoints,
+  fill:"#f59e0b",
+  stroke:"#d97706",
+  "stroke-width":"1.5"
+}, bsaEx);
+make("text", {
+  x:bsaExPoint.x,
+  y:bsaExPoint.y + 13,
+  "font-size":"7",
+  "text-anchor":"middle",
+  "dominant-baseline":"middle"
+}, bsaEx).textContent = "BSA_Ex";
+
 const mlAngle = firstAngles["DS1"] - 0.13;
 const ml6Point = pointAt(1070, mlAngle - 0.06);
 connect(fourthNodes["ML5"], ml6Point);
@@ -521,6 +618,57 @@ if (ds6Element) ds6Element.classList.add("red-outline");
 const ds7Element = [...nodeLayer.querySelectorAll(".node")]
   .find(node => node.querySelector("text")?.textContent === "DS7");
 if (ds7Element) ds7Element.classList.add("orange-outline");
+
+// Пятая орбита ветки UX/UI: UX/UI9 → UX/UI10 → UX/UI11 → UX/UI12.
+// UX/UI10 и UX/UI11 — маленькие проекты на общей невидимой дуге.
+const uxuiFifthAngle = firstAngles["UX/UI1"];
+let previousUxuiFifth = fourthNodes["UX/UI9"];
+
+["UX/UI10", "UX/UI11"].forEach((name, index) => {
+  const angleOffset = index === 0 ? -0.075 : 0.075;
+  const point = pointAt(1070, uxuiFifthAngle + angleOffset);
+  connect(previousUxuiFifth, point);
+  addNode(name, point.x, point.y, "small");
+  previousUxuiFifth = point;
+});
+
+const uxui12Point = pointAt(fifthRadius, uxuiFifthAngle);
+connect(previousUxuiFifth, uxui12Point);
+fifthNodes["UX/UI12"] = addNode("UX/UI12", uxui12Point.x, uxui12Point.y);
+
+// Красная обводка проектов UX/UI11 и UX/UI12.
+["UX/UI11", "UX/UI12"].forEach(name => {
+  const element = [...nodeLayer.querySelectorAll(".node")]
+    .find(node => node.querySelector("text")?.textContent === name);
+  if (element) element.classList.add("red-outline");
+});
+
+// Боковой проект UX/UI_Ex на той же орбите, соединённый с UX/UI12.
+const uxuiExAngle = uxuiFifthAngle + 0.16;
+const uxuiExPoint = pointAt(fifthRadius, uxuiExAngle);
+connect(uxui12Point, uxuiExPoint);
+
+const uxuiEx = make("g", { class: "node", tabindex: "0" }, nodeLayer);
+const uxuiTriSize = 31;
+const uxuiTriPoints = [
+  `${uxuiExPoint.x},${uxuiExPoint.y - uxuiTriSize}`,
+  `${uxuiExPoint.x - uxuiTriSize * 0.88},${uxuiExPoint.y + uxuiTriSize * 0.62}`,
+  `${uxuiExPoint.x + uxuiTriSize * 0.88},${uxuiExPoint.y + uxuiTriSize * 0.62}`
+].join(" ");
+make("polygon", {
+  points: uxuiTriPoints,
+  fill: "#f59e0b",
+  stroke: "#d97706",
+  "stroke-width": "1.5"
+}, uxuiEx);
+make("text", {
+  x: uxuiExPoint.x,
+  y: uxuiExPoint.y + 13,
+  "font-size": "7",
+  "text-anchor": "middle",
+  "dominant-baseline": "middle"
+}, uxuiEx).textContent = "UX/UI_Ex";
+fifthNodes["UX/UI_Ex"] = uxuiExPoint;
 
 // Перемещение и масштабирование схемы.
 const svg = document.getElementById("map");
