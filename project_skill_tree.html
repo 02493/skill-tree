@@ -18,23 +18,59 @@
   .node.small text { font-size:7px; }
   .core circle { stroke:#222; stroke-width:1.5; }
   .core text { font-size:13px; }
+  .node.cbs-highlight circle {
+    fill:#f59e0b;
+    stroke:#d97706;
+    stroke-width:2;
+    filter:url(#orangeGlow);
+  }
+  .node.gold-highlight circle {
+    fill:#f59e0b;
+    stroke:#d97706;
+    stroke-width:2;
+    filter:url(#orangeGlow);
+  }
+  .node.red-outline circle {
+    stroke:#dc2626;
+    stroke-width:2.5;
+  }
+  .node.orange-outline circle {
+    stroke:#f59e0b;
+    stroke-width:2.5;
+  }
 </style>
 </head>
 <body>
 <div id="viewport">
-<svg id="map" viewBox="-250 -350 2100 1900" aria-label="Схема проектов">
+<svg id="map" viewBox="-1250 -1450 4100 4100" aria-label="Схема проектов">
   <g id="scene">
+    <defs>
+      <filter id="orangeGlow" x="-100%" y="-100%" width="300%" height="300%">
+        <feGaussianBlur stdDeviation="8" result="blur"/>
+        <feFlood flood-color="#f59e0b" flood-opacity="0.65" result="color"/>
+        <feComposite in="color" in2="blur" operator="in" result="glow"/>
+        <feMerge>
+          <feMergeNode in="glow"/>
+          <feMergeNode in="SourceGraphic"/>
+        </feMerge>
+      </filter>
+    </defs>
     <circle class="orbit" cx="800" cy="600" r="300"/>
     <circle class="orbit" cx="800" cy="600" r="520"/>
     <circle class="orbit" cx="800" cy="600" r="740"/>
     <circle class="orbit" cx="800" cy="600" r="960"/>
+    <circle class="orbit" cx="800" cy="600" r="1180"/>
+    <circle class="orbit" cx="800" cy="600" r="1400"/>
+    <circle class="orbit" cx="800" cy="600" r="1620"/>
+    <circle class="orbit" cx="800" cy="600" r="1840"/>
+    <circle class="orbit" cx="800" cy="600" r="2060"/>
     <g id="connections"></g>
     <g id="nodes"></g>
   </g>
 </svg>
 </div>
 <script>
-const projects = ["DO1","QA1","C2","BSA00","PM1","DS1","CbS1","PJM1","UX/UI1","TP1","AIE1"];
+const projects = ["DO1","QA1","C2","BSA00","PJM1","DS1","CbS1","PJM1","UX/UI1","TP1","AIE1"];
 
 // Для каждой ветки перечислены только новые проекты после узла первой орбиты.
 // Последний проект каждой цепочки располагается на второй орбите.
@@ -227,10 +263,38 @@ function addFourthProject(parent, name, angle) {
 addFourthProject(thirdNodes["CbS7"], "CbS13", firstAngles["CbS1"]);
 addFourthProject(thirdNodes["C5"], "C6", firstAngles["C2"]);
 addFourthProject(thirdNodes["BInf4"], "BInf11", firstAngles["DS1"] + 0.13);
-addFourthProject(thirdNodes["UX/UI6"], "UX/UI9", firstAngles["UX/UI1"]);
+
+// UX/UI6 → UX/UI7 → UX/UI8 → UX/UI9.
+// UX/UI7 и UX/UI8 — маленькие промежуточные проекты на невидимой дуге.
+const uxuiBranchAngle = firstAngles["UX/UI1"];
+let previousUxui = thirdNodes["UX/UI6"];
+["UX/UI7", "UX/UI8"].forEach((name, index) => {
+  const point = pointAt(850 + index * 55, uxuiBranchAngle - 0.08 + index * 0.16);
+  connect(previousUxui, point);
+  addNode(name, point.x, point.y, "small");
+  previousUxui = point;
+});
+const uxui9Point = pointAt(fourthRadius, uxuiBranchAngle);
+connect(previousUxui, uxui9Point);
+fourthNodes["UX/UI9"] = addNode("UX/UI9", uxui9Point.x, uxui9Point.y);
 addFourthProject(thirdNodes["BSA5"], "BSA9", firstAngles["BSA00"]);
 addFourthProject(thirdNodes["ML2"], "ML5", firstAngles["DS1"] - 0.13);
-addFourthProject(thirdNodes["PjM10"], "PjM20", firstAngles["PJM1"]);
+// PjM10 → PjM11 ... PjM19 → PjM20.
+// Минипроекты распределены по широкой невидимой дуге между третьей и четвёртой орбитами.
+const pjmBranchAngle = firstAngles["PJM1"];
+let previousPjm = thirdNodes["PjM10"];
+
+for (let i = 1; i <= 9; i++) {
+  const angle = pjmBranchAngle - 0.22 + (i - 1) * (0.44 / 8);
+  const point = pointAt(850, angle);
+  connect(previousPjm, point);
+  addNode(`PjM${10 + i}`, point.x, point.y, "small");
+  previousPjm = point;
+}
+
+const pjm20Point = pointAt(fourthRadius, pjmBranchAngle);
+connect(previousPjm, pjm20Point);
+fourthNodes["PjM20"] = addNode("PjM20", pjm20Point.x, pjm20Point.y);
 addFourthProject(thirdNodes["QA7"], "QA9", firstAngles["QA1"]);
 
 // Исключение: DO4 → SQL1 (вне орбит) → APP1 (четвёртая орбита).
@@ -242,32 +306,276 @@ const appPoint = pointAt(fourthRadius, doAngle + 0.10);
 connectCurve(sqlNode, appPoint, doAngle + 0.10);
 fourthNodes["APP1"] = addNode("APP1", appPoint.x, appPoint.y);
 
-// Перемещение и масштабирование схемы
+// Пятая орбита: пока развиваем только ветку CbS.
+// CbS13 → CbS14 → CbS15 → CbS16 → CbS17 → CbS18.
+// Промежуточные проекты маленькие и идут по дуге невидимой окружности.
+const fifthRadius = 1180;
+const fifthAngle = firstAngles["CbS1"];
+let previousCbS = fourthNodes["CbS13"];
+
+["CbS14", "CbS15", "CbS16", "CbS17"].forEach((name, index) => {
+  const t = index / 3;
+  const angleOffset = -0.12 + t * 0.24;
+  const point = pointAt(1070, fifthAngle + angleOffset);
+  connect(previousCbS, point);
+  addNode(name, point.x, point.y, "small");
+  previousCbS = point;
+});
+
+const cbs18Point = pointAt(fifthRadius, fifthAngle);
+connect(previousCbS, cbs18Point);
+const fifthNodes = {};
+fifthNodes["CbS18"] = addNode("CbS18", cbs18Point.x, cbs18Point.y);
+const cbs18Element = [...nodeLayer.querySelectorAll(".node")]
+  .find(node => node.querySelector("text")?.textContent === "CbS18");
+if (cbs18Element) cbs18Element.classList.add("cbs-highlight");
+
+// Красная обводка двух проектов перед золотым CbS18.
+["CbS16", "CbS17"].forEach(name => {
+  const element = [...nodeLayer.querySelectorAll(".node")]
+    .find(node => node.querySelector("text")?.textContent === name);
+  if (element) element.classList.add("red-outline");
+});
+
+// Пятая орбита для ветки PjM.
+// PjM20 → PjM21 → PjM22.
+const pjmFifthAngle = firstAngles["PJM1"];
+const pjm21Point = pointAt(1070, pjmFifthAngle - 0.07);
+connect(fourthNodes["PjM20"], pjm21Point);
+addNode("PjM21", pjm21Point.x, pjm21Point.y, "small");
+
+const pjm22Point = pointAt(fifthRadius, pjmFifthAngle);
+connect(pjm21Point, pjm22Point);
+fifthNodes["PjM22"] = addNode("PjM22", pjm22Point.x, pjm22Point.y);
+
+// Боковая ветка на той же пятой орбите: PjM22 → PjM_Ex.
+// Узел PjM_Ex отображается треугольником, соединение прямое.
+const pjmExAngle = pjmFifthAngle + 0.16;
+const pjmExPoint = pointAt(fifthRadius, pjmExAngle);
+connect(pjm22Point, pjmExPoint);
+
+const pjmEx = make("g", {
+  class: "node",
+  tabindex: "0"
+}, nodeLayer);
+const triSize = 31;
+const triPoints = [
+  `${pjmExPoint.x},${pjmExPoint.y - triSize}`,
+  `${pjmExPoint.x - triSize * 0.88},${pjmExPoint.y + triSize * 0.62}`,
+  `${pjmExPoint.x + triSize * 0.88},${pjmExPoint.y + triSize * 0.62}`
+].join(" ");
+make("polygon", {
+  points: triPoints,
+  fill: "#f59e0b",
+  stroke: "#d97706",
+  "stroke-width": "1.5"
+}, pjmEx);
+make("text", {
+  x: pjmExPoint.x,
+  y: pjmExPoint.y + 13,
+  "font-size": "7",
+  "text-anchor": "middle",
+  "dominant-baseline": "middle"
+}, pjmEx).textContent = "PjM_Ex";
+fifthNodes["PjM_Ex"] = pjmExPoint;
+
+// Красная обводка двух проектов перед оранжевым треугольником PjM_Ex.
+["PjM21", "PjM22"].forEach(name => {
+  const element = [...nodeLayer.querySelectorAll(".node")]
+    .find(node => node.querySelector("text")?.textContent === name);
+  if (element) element.classList.add("red-outline");
+});
+
+
+
+// Пятая орбита для ветки BInf.
+// BInf11 → BInf12 → BInf13 → BInf14 → BInf15 → BInf16.
+// BInf12–BInf15 — маленькие промежуточные проекты на невидимой дуге.
+const binfFifthAngle = firstAngles["DS1"] + 0.13;
+let previousBInf = fourthNodes["BInf11"];
+
+["BInf12", "BInf13", "BInf14", "BInf15"].forEach((name, index) => {
+  const t = index / 3;
+  const angleOffset = -0.12 + t * 0.24;
+  const point = pointAt(1070, binfFifthAngle + angleOffset);
+  connect(previousBInf, point);
+  addNode(name, point.x, point.y, "small");
+  previousBInf = point;
+});
+
+const binf16Point = pointAt(fifthRadius, binfFifthAngle);
+connect(previousBInf, binf16Point);
+fifthNodes["BInf16"] = addNode("BInf16", binf16Point.x, binf16Point.y);
+
+// Финальный проект BInf16 выделен золотым свечением;
+// два предыдущих проекта имеют красную обводку.
+const binf16Element = [...nodeLayer.querySelectorAll(".node")]
+  .find(node => node.querySelector("text")?.textContent === "BInf16");
+if (binf16Element) binf16Element.classList.add("cbs-highlight");
+
+["BInf14", "BInf15"].forEach(name => {
+  const element = [...nodeLayer.querySelectorAll(".node")]
+    .find(node => node.querySelector("text")?.textContent === name);
+  if (element) element.classList.add("red-outline");
+});
+
+
+// Ветка ML: ML5 → ML6 → ML7 → ML8 → ML9 → ML10.
+// ML6 — маленький промежуточный проект между четвёртой и пятой орбитами.
+// ML7 расположен на пятой орбите.
+// ML8 и ML9 — маленькие промежуточные проекты между пятой и шестой орбитами.
+// ML10 расположен на шестой орбите и пока не является финальным проектом.
+const sixthRadius = 1400;
+const mlAngle = firstAngles["DS1"] - 0.13;
+const ml6Point = pointAt(1070, mlAngle - 0.06);
+connect(fourthNodes["ML5"], ml6Point);
+addNode("ML6", ml6Point.x, ml6Point.y, "small");
+
+const ml7Point = pointAt(fifthRadius, mlAngle);
+connect(ml6Point, ml7Point);
+fifthNodes["ML7"] = addNode("ML7", ml7Point.x, ml7Point.y);
+
+const ml8Point = pointAt(1290, mlAngle - 0.07);
+connect(ml7Point, ml8Point);
+addNode("ML8", ml8Point.x, ml8Point.y, "small");
+
+const ml9Point = pointAt(1345, mlAngle + 0.07);
+connect(ml8Point, ml9Point);
+addNode("ML9", ml9Point.x, ml9Point.y, "small");
+
+const ml10Point = pointAt(sixthRadius, mlAngle);
+connect(ml9Point, ml10Point);
+addNode("ML10", ml10Point.x, ml10Point.y);
+
+
+// Продолжение ML-ветки после ML10.
+// Если между крупными узлами несколько минипроектов, они располагаются
+// на одной собственной невидимой дуге (как PjM10–PjM20).
+// Если минипроект один — он ставится прямо на соединении крупных узлов.
+const seventhRadius = 1620;
+const eighthRadius = 1840;
+const ninthRadius = 2060;
+const mlDsAngle = firstAngles["DS1"] - 0.13;
+
+// ML10 → ML11 → ML12 → DS3.
+// ML11 и ML12 лежат на одной невидимой окружности.
+let previousMLDS = ml10Point;
+["ML11", "ML12"].forEach((name, index) => {
+  const angle = mlDsAngle - 0.12 + index * 0.24;
+  const point = pointAt(1535, angle);
+  connect(previousMLDS, point);
+  addNode(name, point.x, point.y, "small");
+  previousMLDS = point;
+});
+
+// Два отдельных маленьких узла DS1 и DS2 перед DS3.
+// Они расположены близко друг к другу на общей невидимой дуге.
+const newDS1Point = pointAt(1575, mlDsAngle - 0.035);
+connect(previousMLDS, newDS1Point);
+addNode("DS1", newDS1Point.x, newDS1Point.y, "small");
+
+const newDS2Point = pointAt(1575, mlDsAngle + 0.035);
+connect(newDS1Point, newDS2Point);
+addNode("DS2", newDS2Point.x, newDS2Point.y, "small");
+
+const ds3Point = pointAt(seventhRadius, mlDsAngle);
+connect(newDS2Point, ds3Point);
+addNode("DS3", ds3Point.x, ds3Point.y);
+
+// DS3 → DS4 → DS5 → DS6.
+// DS4 и DS5 сближены на общей невидимой дуге.
+const ds4Point = pointAt(1730, mlDsAngle - 0.04);
+connect(ds3Point, ds4Point);
+addNode("DS4", ds4Point.x, ds4Point.y, "small");
+
+const ds5Point = pointAt(1730, mlDsAngle + 0.04);
+connect(ds4Point, ds5Point);
+addNode("DS5", ds5Point.x, ds5Point.y, "small");
+
+const ds6Point = pointAt(eighthRadius, mlDsAngle);
+connect(ds5Point, ds6Point);
+addNode("DS6", ds6Point.x, ds6Point.y);
+
+// DS6 → DS7 → DS8: один минипроект, поэтому он расположен
+// непосредственно на прямом отрезке между двумя крупными узлами.
+const ds8Point = pointAt(ninthRadius, mlDsAngle);
+const ds7Point = {
+  x: ds6Point.x + (ds8Point.x - ds6Point.x) / 2,
+  y: ds6Point.y + (ds8Point.y - ds6Point.y) / 2
+};
+connect(ds6Point, ds7Point);
+addNode("DS7", ds7Point.x, ds7Point.y, "small");
+connect(ds7Point, ds8Point);
+addNode("DS8", ds8Point.x, ds8Point.y);
+
+// Цветовые акценты: DS6 — красный, DS7 — оранжевый,
+// DS8 — золотой с эффектом свечения.
+const ds8Element = [...nodeLayer.querySelectorAll(".node")]
+  .find(node => node.querySelector("text")?.textContent === "DS8");
+if (ds8Element) ds8Element.classList.add("gold-highlight");
+
+const ds6Element = [...nodeLayer.querySelectorAll(".node")]
+  .find(node => node.querySelector("text")?.textContent === "DS6");
+if (ds6Element) ds6Element.classList.add("red-outline");
+
+const ds7Element = [...nodeLayer.querySelectorAll(".node")]
+  .find(node => node.querySelector("text")?.textContent === "DS7");
+if (ds7Element) ds7Element.classList.add("orange-outline");
+
+// Перемещение и масштабирование схемы.
 const svg = document.getElementById("map");
 const scene = document.getElementById("scene");
-let scale = 1, tx = 0, ty = 0, dragging = false, startX = 0, startY = 0;
-function update() { scene.setAttribute("transform",`translate(${tx} ${ty}) scale(${scale})`); }
+let scale = 1, tx = 0, ty = 0;
+let dragging = false, startX = 0, startY = 0;
+
+function update() {
+  scene.setAttribute("transform", `translate(${tx} ${ty}) scale(${scale})`);
+}
+
+// Переводим координаты курсора из экрана в систему координат SVG.
+function svgPointFromClient(clientX, clientY) {
+  const point = svg.createSVGPoint();
+  point.x = clientX;
+  point.y = clientY;
+  return point.matrixTransform(svg.getScreenCTM().inverse());
+}
 
 svg.addEventListener("pointerdown", e => {
   if (e.target.closest(".node")) return;
   dragging = true;
-  startX = e.clientX - tx;
-  startY = e.clientY - ty;
+  const point = svgPointFromClient(e.clientX, e.clientY);
+  startX = point.x - tx;
+  startY = point.y - ty;
   svg.setPointerCapture(e.pointerId);
 });
+
 svg.addEventListener("pointermove", e => {
   if (!dragging) return;
-  tx = e.clientX - startX;
-  ty = e.clientY - startY;
+  const point = svgPointFromClient(e.clientX, e.clientY);
+  tx = point.x - startX;
+  ty = point.y - startY;
   update();
 });
+
 svg.addEventListener("pointerup", () => dragging = false);
 svg.addEventListener("pointercancel", () => dragging = false);
+
 svg.addEventListener("wheel", e => {
   e.preventDefault();
-  scale = Math.max(.6,Math.min(2,scale * (e.deltaY < 0 ? 1.08 : .92)));
+
+  // Масштабируем относительно курсора: точка под ним остаётся на месте.
+  const cursor = svgPointFromClient(e.clientX, e.clientY);
+  const worldX = (cursor.x - tx) / scale;
+  const worldY = (cursor.y - ty) / scale;
+
+  const zoomFactor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+  const nextScale = Math.max(0.4, Math.min(6, scale * zoomFactor));
+
+  tx = cursor.x - worldX * nextScale;
+  ty = cursor.y - worldY * nextScale;
+  scale = nextScale;
   update();
-},{passive:false});
+}, { passive: false });
 </script>
 </body>
 </html>
