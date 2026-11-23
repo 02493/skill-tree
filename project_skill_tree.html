@@ -22,11 +22,12 @@
 </head>
 <body>
 <div id="viewport">
-<svg id="map" viewBox="-100 -200 1800 1600" aria-label="Схема проектов">
+<svg id="map" viewBox="-250 -350 2100 1900" aria-label="Схема проектов">
   <g id="scene">
     <circle class="orbit" cx="800" cy="600" r="300"/>
     <circle class="orbit" cx="800" cy="600" r="520"/>
     <circle class="orbit" cx="800" cy="600" r="740"/>
+    <circle class="orbit" cx="800" cy="600" r="960"/>
     <g id="connections"></g>
     <g id="nodes"></g>
   </g>
@@ -205,6 +206,41 @@ function drawDSBranch(start, names, angleOffset, arc = 0.10) {
 const ds2 = secondNodes["DS1"];
 drawDSBranch(ds2, ["ML1", "ML2"], -0.13, 0.07);
 drawDSBranch(ds2, ["BInf1", "BInf2", "BInf3", "BInf4"], 0.13, 0.09);
+
+// Четвёртая орбита. Между третьей и четвёртой орбитами
+// используем плавные дуги без выдуманных названий проектов.
+const fourthRadius = 960;
+const fourthNodes = {};
+
+function connectCurve(a, b, angle) {
+  // Все связи четвёртой орбиты — строго прямые отрезки.
+  connect(a, b);
+}
+
+function addFourthProject(parent, name, angle) {
+  const point = pointAt(fourthRadius, angle);
+  connectCurve(parent, point, angle);
+  fourthNodes[name] = addNode(name, point.x, point.y);
+}
+
+// Ветки четвёртой орбиты.
+addFourthProject(thirdNodes["CbS7"], "CbS13", firstAngles["CbS1"]);
+addFourthProject(thirdNodes["C5"], "C6", firstAngles["C2"]);
+addFourthProject(thirdNodes["BInf4"], "BInf11", firstAngles["DS1"] + 0.13);
+addFourthProject(thirdNodes["UX/UI6"], "UX/UI9", firstAngles["UX/UI1"]);
+addFourthProject(thirdNodes["BSA5"], "BSA9", firstAngles["BSA00"]);
+addFourthProject(thirdNodes["ML2"], "ML5", firstAngles["DS1"] - 0.13);
+addFourthProject(thirdNodes["PjM10"], "PjM20", firstAngles["PJM1"]);
+addFourthProject(thirdNodes["QA7"], "QA9", firstAngles["QA1"]);
+
+// Исключение: DO4 → SQL1 (вне орбит) → APP1 (четвёртая орбита).
+const doAngle = firstAngles["DO1"];
+const sqlPoint = pointAt(850, doAngle + 0.10);
+connectCurve(thirdNodes["DO4"], sqlPoint, doAngle + 0.10);
+const sqlNode = addNode("SQL1", sqlPoint.x, sqlPoint.y, "small");
+const appPoint = pointAt(fourthRadius, doAngle + 0.10);
+connectCurve(sqlNode, appPoint, doAngle + 0.10);
+fourthNodes["APP1"] = addNode("APP1", appPoint.x, appPoint.y);
 
 // Перемещение и масштабирование схемы
 const svg = document.getElementById("map");
